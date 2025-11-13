@@ -14,19 +14,28 @@ import random
 import sys
 import os
 
+def barra_progreso(iteracion, total, prefijo='', sufijo='', longitud=50):
+    """Muestra una barra de progreso en consola sin dependencias externas"""
+    porcentaje = 100 * (iteracion / float(total))
+    lleno = int(longitud * iteracion // total)
+    barra = '█' * lleno + '░' * (longitud - lleno)
+    print(f'\r{prefijo} │{barra}│ {porcentaje:.0f}% [{iteracion}/{total}] {sufijo}', end='', flush=True)
+    if iteracion == total:
+        print()  # Nueva línea al terminar
+
 def limpiar_consola():
     """Limpia la consola según el sistema operativo"""
     os.system('cls' if os.name == 'nt' else 'clear')
 
 def solicitar_archivo():
     """Solicita al usuario la ruta del archivo Excel"""
-    print("▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓")
-    print("▓          SCRIPT DE AJUSTE DE REGISTROS PI          ▓")
-    print("▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓")
+    print("░░░░▒▒▒▒▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▒▒▒▒░░░░")
+    print("░░░░▒▒▒▒▓▓▓                    SIGUIENTE ARCHIVO                    ▓▓▓▒▒▒▒░░░░")
+    print("░░░░▒▒▒▒▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▒▒▒▒░░░░")
     print("\nPor favor, arrastra el archivo Excel aquí y presiona ENTER:")
     print("(o escribe la ruta completa del archivo)\n")
     
-    ruta = input("Ruta del archivo: ").strip().strip('"').strip("'")
+    ruta = input("\nRuta del archivo: ").strip().strip('"').strip("'")
     
     if not os.path.exists(ruta):
         print(f"\n❌ ERROR: El archivo no existe: {ruta}")
@@ -37,10 +46,10 @@ def solicitar_archivo():
 
 def solicitar_ticket_inicial():
     """Solicita el número de ticket inicial"""
-    print("▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓")
+    print("\n\n▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▒▒▒▒░░░░")
     while True:
         try:
-            ticket = input("¿Cuál será el número del PRIMER TICKET? (ej: 1000): ").strip()
+            ticket = input("\n¿Cuál será el número del PRIMER TICKET? (ej: 1000): ").strip()
             ticket_num = int(ticket)
             if ticket_num > 0:
                 return ticket_num
@@ -364,12 +373,11 @@ def paso6_hacer_tickets_correlativos(df, ticket_inicial):
     col_b = columnas[1]  # DIA
     col_d = columnas[3]  # NºFactura
     
-    # Agrupar por día - forzar formato dd/mm/yyyy primero
-    df[col_b] = pd.to_datetime(df[col_b], dayfirst=True, errors='coerce')
+    # Agrupar por día - normalizar a Timestamp sin hora
+    df[col_b] = pd.to_datetime(df[col_b], dayfirst=True, errors='coerce').dt.normalize()
     
-    # Extraer solo la fecha (sin hora)
-    df['_fecha_temp'] = df[col_b].dt.date
-    dias_unicos = sorted(df['_fecha_temp'].dropna().unique())
+    # Usar directamente la columna normalizada (sin crear date)
+    dias_unicos = sorted(df[col_b].dropna().unique())
     
     print(f"📅 Días encontrados: {len(dias_unicos)}")
     if dias_unicos:
@@ -401,16 +409,13 @@ def paso6_hacer_tickets_correlativos(df, ticket_inicial):
     ticket_actual = ticket_inicial
     
     for dia in dias_unicos:
-        mask = df['_fecha_temp'] == dia
+        mask = df[col_b] == dia
         indices = df[mask].index.tolist()
         num_tickets = len(indices)
         
         for idx in indices:
             df.at[idx, col_d] = ticket_actual
             ticket_actual += 1
-    
-    # Eliminar columna temporal
-    df = df.drop('_fecha_temp', axis=1)
     
     print(f"✅ Tickets renumerados desde {ticket_inicial} hasta {ticket_actual - 1}")
     print(f"   Total de días procesados: {len(dias_unicos)}")
@@ -450,7 +455,7 @@ def paso3_ajustar_totales_por_dia(df, df_totales):
             if pd.notna(fecha):
                 total = float(row[1]) if pd.notna(row[1]) else None
                 if total is not None:
-                    totales_esperados[fecha.date()] = total
+                    totales_esperados[fecha.normalize()] = total
         
         print(f"   Total de fechas válidas procesadas: {len(totales_esperados)}")
         if totales_esperados:
@@ -469,26 +474,28 @@ def paso3_ajustar_totales_por_dia(df, df_totales):
         print("   - Columna B tenga los totales esperados")
         return df
     
-    # Asegurar que las fechas están en el formato correcto
+    # Normalizar fechas a Timestamp sin hora
     if '_fecha_temp' in df.columns:
         df = df.drop('_fecha_temp', axis=1)
     
-    # Asegurarse de que col_b es datetime
     if not pd.api.types.is_datetime64_any_dtype(df[col_b]):
         df[col_b] = pd.to_datetime(df[col_b], dayfirst=True, errors='coerce')
     
-    df['_fecha_temp'] = df[col_b].dt.date
+    # Normalizar para eliminar hora (mantener como Timestamp)
+    df[col_b] = df[col_b].dt.normalize()
+    df['_fecha_temp'] = df[col_b]
     
     # Procesar cada día
-    dias_unicos = sorted([d for d in df['_fecha_temp'].unique() if d is not None and not pd.isna(d)])
+    dias_unicos = sorted([d for d in df['_fecha_temp'].dropna().unique()])
     filas_nuevas = []
     
-    print(f"\n🔍 Procesando {len(dias_unicos)} días:")
     dias_sin_total = []
     dias_ajustados = []
     dias_correctos = []
     
-    for dia in dias_unicos:
+    print(f"\n🔍 Procesando {len(dias_unicos)} días...")
+    for idx, dia in enumerate(dias_unicos, 1):
+        barra_progreso(idx, len(dias_unicos), prefijo='PASO 3: Ajustando totales', sufijo='días')
         mask = df['_fecha_temp'] == dia
         registros_dia = df[mask].copy()
         
@@ -496,19 +503,15 @@ def paso3_ajustar_totales_por_dia(df, df_totales):
         total_esperado = totales_esperados.get(dia)
         
         if total_esperado is None:
-            # IMPORTANTE: No hay total en la hoja TOTALES para este día
-            print(f"⚠️  {dia}: SIN TOTAL en hoja TOTALES - Calculado: {total_actual:.2f}€")
             dias_sin_total.append(dia)
             continue
         
         diferencia = total_esperado - total_actual
         
         if abs(diferencia) < 0.01:
-            print(f"✅ {dia}: Coincide con TOTALES: {total_actual:.2f}€")
             dias_correctos.append(dia)
             continue
         
-        print(f"🔧 {dia}: Ajustando {total_actual:.2f}€ → {total_esperado:.2f}€ (dif: {diferencia:+.2f}€)")
         dias_ajustados.append(dia)
         
         # Obtener datos del último registro del día
@@ -543,13 +546,13 @@ def paso3_ajustar_totales_por_dia(df, df_totales):
             
             nueva_fila = {
                 col_a: local,
-                col_b: pd.Timestamp(dia),
+                col_b: dia,  # Ya es Timestamp normalizado
                 col_c: nueva_hora,
                 col_d: ultimo_ticket + i + 1,
-                col_e: base,
-                col_f: iva,
-                col_g: total_ticket,
-                col_h: total_ticket,
+                col_e: round(base, 2),
+                col_f: round(iva, 2),
+                col_g: round(total_ticket, 2),
+                col_h: round(total_ticket, 2),
             }
             
             # Añadir columnas restantes vacías
@@ -596,20 +599,22 @@ def paso4_añadir_ticket_negativo(df):
     col_h = columnas[7]  # COBRADO
     col_j = columnas[9] if len(columnas) > 9 else 'INVITACIONES'  # INVITACIONES
     
-    # Asegurar columna temporal de fecha
+    # Normalizar fechas a Timestamp sin hora
     if '_fecha_temp' in df.columns:
         df = df.drop('_fecha_temp', axis=1)
     
-    # Asegurarse de que col_b es datetime
     if not pd.api.types.is_datetime64_any_dtype(df[col_b]):
         df[col_b] = pd.to_datetime(df[col_b], dayfirst=True, errors='coerce')
     
-    df['_fecha_temp'] = df[col_b].dt.date
+    df[col_b] = df[col_b].dt.normalize()
+    df['_fecha_temp'] = df[col_b]
     
-    dias_unicos = sorted([d for d in df['_fecha_temp'].unique() if d is not None and not pd.isna(d)])
+    dias_unicos = sorted([d for d in df['_fecha_temp'].dropna().unique()])
     filas_nuevas = []
     
-    for dia in dias_unicos:
+    print(f"\n🔍 Procesando {len(dias_unicos)} días...")
+    for idx, dia in enumerate(dias_unicos, 1):
+        barra_progreso(idx, len(dias_unicos), prefijo='PASO 4: Tickets negativos', sufijo='días')
         mask = df['_fecha_temp'] == dia
         registros_dia = df[mask].copy()
         
@@ -631,7 +636,7 @@ def paso4_añadir_ticket_negativo(df):
         
         nueva_fila = {
             col_a: local,
-            col_b: pd.Timestamp(dia),
+            col_b: dia,  # Ya es Timestamp normalizado
             col_c: hora_final,
             col_d: ultimo_ticket + 1,
             col_e: round(base_neg, 2),
@@ -647,8 +652,6 @@ def paso4_añadir_ticket_negativo(df):
                 nueva_fila[columnas[col_idx]] = ''
         
         filas_nuevas.append(nueva_fila)
-        
-        print(f"✅ {dia}: Ticket negativo añadido: {importe_negativo:.2f}€ ({porcentaje*100:.2f}% de {total_dia:.2f}€)")
     
     # Añadir las filas al DataFrame
     if filas_nuevas:
@@ -659,9 +662,9 @@ def paso4_añadir_ticket_negativo(df):
     return df
 
 def paso5_compensar_tickets_negativos(df, df_totales):
-    """Añade tickets positivos antes del negativo para compensar"""
+    """Añade 2 tickets positivos ENTRE los registros normales para compensar el negativo"""
     print("\n╔═════════════════════════════════════════════════════════════════════════════╗")
-    print("║  PASO 5: Compensando tickets negativos                                      ║")
+    print("║  PASO 5: Compensando tickets negativos (2 tickets ENTRE los normales)       ║")
     print("╚═════════════════════════════════════════════════════════════════════════════╝")
     
     columnas = df.columns.tolist()
@@ -673,103 +676,152 @@ def paso5_compensar_tickets_negativos(df, df_totales):
     col_f = columnas[5]  # IVA
     col_g = columnas[6]  # TOTAL Fra
     col_h = columnas[7]  # COBRADO
+    col_j = columnas[9] if len(columnas) > 9 else 'INVITACIONES'  # INVITACIONES
     
     # Crear diccionario de totales esperados
     totales_esperados = {}
     if df_totales is not None:
-        # Leer datos: Columna 0 = Fecha, Columna 1 = Total (sin encabezados)
         for _, row in df_totales.iterrows():
             fecha = pd.to_datetime(row[0], dayfirst=True, errors='coerce')
             if pd.notna(fecha):
                 total = float(row[1]) if pd.notna(row[1]) else None
                 if total is not None:
-                    totales_esperados[fecha.date()] = total
+                    totales_esperados[fecha.normalize()] = total
     
-    # Asegurar columna temporal de fecha - limpiar y recrear si es necesario
+    # Normalizar fechas a Timestamp sin hora
     if '_fecha_temp' in df.columns:
         df = df.drop('_fecha_temp', axis=1)
     
-    # Asegurarse de que col_b es datetime
     if not pd.api.types.is_datetime64_any_dtype(df[col_b]):
         df[col_b] = pd.to_datetime(df[col_b], dayfirst=True, errors='coerce')
     
-    df['_fecha_temp'] = df[col_b].dt.date
+    df[col_b] = df[col_b].dt.normalize()
+    df['_fecha_temp'] = df[col_b]
+    dias_unicos = sorted([d for d in df['_fecha_temp'].dropna().unique()])
     
-    # Filtrar valores no nulos y ordenar
-    dias_unicos = sorted([d for d in df['_fecha_temp'].unique() if d is not None and not pd.isna(d)])
-    filas_compensacion = []
+    # Procesar cada día
+    df_final = pd.DataFrame()
     
-    for dia in dias_unicos:
+    print(f"\n🔍 Procesando {len(dias_unicos)} días...")
+    dias_compensados = 0
+    for idx, dia in enumerate(dias_unicos, 1):
+        barra_progreso(idx, len(dias_unicos), prefijo='PASO 5: Compensando negativos', sufijo='días')
         mask = df['_fecha_temp'] == dia
-        registros_dia = df[mask].copy()
+        registros_dia = df[mask].copy().reset_index(drop=True)
         
+        # Identificar el ticket negativo (último del día)
+        idx_negativo = len(registros_dia) - 1
+        ticket_negativo = registros_dia.iloc[idx_negativo]
+        importe_negativo = abs(ticket_negativo[col_g])
+        
+        # Calcular totales
         total_actual = registros_dia[col_g].sum()
         total_esperado = totales_esperados.get(dia, total_actual)
-        
         diferencia = total_esperado - total_actual
         
         if abs(diferencia) < 0.01:
-            print(f"✅ {dia}: No necesita compensación: {total_actual:.2f}€")
+            df_final = pd.concat([df_final, registros_dia], ignore_index=True)
             continue
         
-        print(f"🔧 {dia}: Compensando {diferencia:.2f}€")
+        dias_compensados += 1
         
-        # Encontrar el penúltimo registro (antes del negativo)
-        penultimo_registro = registros_dia.iloc[-2] if len(registros_dia) > 1 else registros_dia.iloc[-1]
-        ticket_antes_negativo = int(penultimo_registro[col_d])
-        local = penultimo_registro[col_a]
-        hora_base = penultimo_registro[col_c]
+        # Dividir compensación en 2 tickets con importes aleatorios
+        total_compensacion = abs(diferencia)
+        porcentaje_ticket1 = random.uniform(0.4, 0.6)  # Entre 40% y 60%
+        importe_ticket1 = round(total_compensacion * porcentaje_ticket1, 2)
+        importe_ticket2 = round(total_compensacion - importe_ticket1, 2)
         
-        # Crear tickets de compensación (dividir en varios tickets)
-        num_tickets = max(1, int(abs(diferencia) / 50))
-        compensacion_por_ticket = diferencia / num_tickets
+        # Elegir posiciones aleatorias ENTRE los tickets normales (no al final)
+        num_normales = len(registros_dia) - 1  # Sin contar el negativo
+        if num_normales < 2:
+            posiciones = [0, 0]
+        else:
+            # Insertar en el medio del día (entre 30% y 70% del día)
+            pos_min = int(num_normales * 0.3)
+            pos_max = int(num_normales * 0.7)
+            if pos_max <= pos_min:
+                pos_max = pos_min + 1
+            
+            pos1 = random.randint(pos_min, pos_max)
+            pos2 = random.randint(pos_min, pos_max)
+            if pos2 == pos1:
+                pos2 = min(pos1 + random.randint(1, 3), num_normales - 1)
+            
+            posiciones = sorted([pos1, pos2])
         
-        for i in range(num_tickets):
-            # Calcular hora
-            if isinstance(hora_base, str):
+        # Obtener datos de referencia
+        local = registros_dia.iloc[0][col_a]
+        
+        # Crear los 2 tickets de compensación
+        tickets_compensacion = []
+        for idx, (pos, importe) in enumerate(zip(posiciones, [importe_ticket1, importe_ticket2])):
+            # Obtener hora de referencia del registro en esa posición
+            if pos < len(registros_dia) - 1:
+                hora_ref = registros_dia.iloc[pos][col_c]
+            else:
+                hora_ref = registros_dia.iloc[-2][col_c] if len(registros_dia) > 1 else '23:50'
+            
+            # Calcular hora (añadir segundos aleatorios)
+            if isinstance(hora_ref, str):
                 try:
-                    hora_dt = datetime.strptime(hora_base, '%H:%M:%S')
+                    hora_dt = datetime.strptime(hora_ref, '%H:%M:%S')
                 except:
                     try:
-                        hora_dt = datetime.strptime(hora_base, '%H:%M')
+                        hora_dt = datetime.strptime(hora_ref, '%H:%M')
                     except:
                         hora_dt = datetime.strptime('23:50:00', '%H:%M:%S')
             else:
-                hora_dt = hora_base
+                hora_dt = hora_ref
             
-            nueva_hora = (hora_dt + timedelta(minutes=i+1)).strftime('%H:%M')
+            nueva_hora = (hora_dt + timedelta(seconds=random.randint(10, 50))).strftime('%H:%M')
             
-            # Calcular BASE e IVA - Redondear a 2 decimales
-            total_ticket = round(compensacion_por_ticket, 2)
-            base = round(total_ticket / 1.07, 2)
-            iva = round(total_ticket - base, 2)
+            # Calcular BASE e IVA con 2 decimales exactos
+            base = round(importe / 1.07, 2)
+            iva = round(importe - base, 2)
             
             nueva_fila = {
                 col_a: local,
-                col_b: pd.Timestamp(dia),
+                col_b: dia,  # Ya es Timestamp normalizado
                 col_c: nueva_hora,
-                col_d: ticket_antes_negativo + i + 1,
-                col_e: base,
-                col_f: iva,
-                col_g: total_ticket,
-                col_h: total_ticket,
+                col_d: 999999,  # Temporal, se renumerará en paso6
+                col_e: round(base, 2),
+                col_f: round(iva, 2),
+                col_g: round(importe, 2),
+                col_h: round(importe, 2),
             }
             
             # Añadir columnas restantes vacías
             for col_idx in range(8, len(columnas)):
                 nueva_fila[columnas[col_idx]] = ''
             
-            filas_compensacion.append(nueva_fila)
-    
-    # Añadir las filas de compensación
-    if filas_compensacion:
-        df_compensacion = pd.DataFrame(filas_compensacion)
-        df = pd.concat([df, df_compensacion], ignore_index=True)
-        df = df.sort_values([col_b, col_c]).reset_index(drop=True)
+            tickets_compensacion.append((posiciones[idx] + idx, nueva_fila))
         
-        print(f"✅ Se agregaron {len(filas_compensacion)} tickets de compensación")
+        # Insertar los tickets en las posiciones correspondientes
+        # Primero separar negativos del resto
+        registros_normales = registros_dia.iloc[:-1].copy()  # Sin el negativo
+        
+        # Insertar tickets de compensación
+        for pos, ticket in tickets_compensacion:
+            pos_ajustada = min(pos, len(registros_normales))
+            ticket_df = pd.DataFrame([ticket])
+            registros_normales = pd.concat([
+                registros_normales.iloc[:pos_ajustada],
+                ticket_df,
+                registros_normales.iloc[pos_ajustada:]
+            ], ignore_index=True)
+        
+        # Añadir el ticket negativo al final
+        ticket_neg_df = pd.DataFrame([ticket_negativo])
+        registros_completos = pd.concat([registros_normales, ticket_neg_df], ignore_index=True)
+        
+        df_final = pd.concat([df_final, registros_completos], ignore_index=True)
     
-    return df
+    # Ordenar por fecha y hora
+    df_final = df_final.sort_values([col_b, col_c]).reset_index(drop=True)
+    
+    print(f"✅ Completado: {dias_compensados} días compensados con 2 tickets cada uno")
+    
+    return df_final
 
 def paso7_verificacion_final(df, df_totales):
     """Verifica la integridad final de los datos"""
@@ -782,15 +834,16 @@ def paso7_verificacion_final(df, df_totales):
     col_g = columnas[6]  # TOTAL Fra
     col_j = columnas[9] if len(columnas) > 9 else None  # INVITACIONES (negativos)
     
-    # Asegurar columna temporal de fecha
+    # Normalizar fechas a Timestamp sin hora
     if '_fecha_temp' in df.columns:
         df = df.drop('_fecha_temp', axis=1)
     
     if not pd.api.types.is_datetime64_any_dtype(df[col_b]):
         df[col_b] = pd.to_datetime(df[col_b], dayfirst=True, errors='coerce')
     
-    df['_fecha_temp'] = df[col_b].dt.date
-    dias_unicos = sorted([d for d in df['_fecha_temp'].unique() if d is not None and not pd.isna(d)])
+    df[col_b] = df[col_b].dt.normalize()
+    df['_fecha_temp'] = df[col_b]
+    dias_unicos = sorted([d for d in df['_fecha_temp'].dropna().unique()])
     
     # Cargar totales esperados
     totales_esperados = {}
@@ -800,25 +853,22 @@ def paso7_verificacion_final(df, df_totales):
             if pd.notna(fecha):
                 total = float(row[1]) if pd.notna(row[1]) else None
                 if total is not None:
-                    totales_esperados[fecha.date()] = total
-    
-    print(f"\n🔍 Analizando {len(dias_unicos)} días...\n")
+                    totales_esperados[fecha.normalize()] = total
     
     errores = []
     advertencias = []
     dias_ok = 0
+    dias_con_error = []
     
-    for dia in dias_unicos:
+    print(f"\n🔍 Analizando {len(dias_unicos)} días...")
+    for idx, dia in enumerate(dias_unicos, 1):
+        barra_progreso(idx, len(dias_unicos), prefijo='PASO 7: Verificación final', sufijo='días')
         mask = df['_fecha_temp'] == dia
         registros_dia = df[mask].copy()
         
-        # Verificar 1: Contar tickets negativos
-        if col_j:
-            negativos = registros_dia[registros_dia[col_j].notna() & (registros_dia[col_j] != '') & (registros_dia[col_j] != 0)]
-            num_negativos = len(negativos)
-        else:
-            negativos = registros_dia[registros_dia[col_g] < 0]
-            num_negativos = len(negativos)
+        # Verificar 1: Contar tickets negativos (donde TOTAL es negativo)
+        negativos = registros_dia[registros_dia[col_g] < 0]
+        num_negativos = len(negativos)
         
         # Verificar 2: Total del día
         total_dia = registros_dia[col_g].sum()
@@ -829,30 +879,25 @@ def paso7_verificacion_final(df, df_totales):
         
         if total_esperado is not None:
             diferencia = abs(total_esperado - total_dia)
-            icono_total = "✅" if diferencia < 0.01 else "❌"
-            diferencia_str = f"{diferencia:+.2f}€" if diferencia >= 0.01 else "0.00€"
-            total_info = f"Esperado: {total_esperado:.2f}€ | Real: {total_dia:.2f}€ | Dif: {diferencia_str}"
         else:
-            icono_total = "⚠️"
-            total_info = f"Real: {total_dia:.2f}€ | Sin referencia en TOTALES"
-        
-        # Resumen de línea
-        status_negativos = f"{icono_negativos} {num_negativos} neg"
-        status_total = f"{icono_total} {total_info}"
-        
-        print(f"  {dia}: {status_negativos} | {status_total}")
+            diferencia = 0
         
         # Registrar errores
+        tiene_error = False
         if num_negativos != 1:
             errores.append(f"{dia}: Tiene {num_negativos} tickets negativos (esperado: 1)")
+            tiene_error = True
         
         if total_esperado is not None and diferencia >= 0.01:
             errores.append(f"{dia}: Diferencia en total: {diferencia:.2f}€")
+            tiene_error = True
         
         if total_esperado is None:
             advertencias.append(f"{dia}: Sin total de referencia en hoja TOTALES")
         
-        if num_negativos == 1 and (total_esperado is None or diferencia < 0.01):
+        if tiene_error:
+            dias_con_error.append((dia, num_negativos, total_dia, total_esperado, diferencia))
+        elif num_negativos == 1 and (total_esperado is None or diferencia < 0.01):
             dias_ok += 1
     
     # Mostrar resumen final
@@ -863,12 +908,16 @@ def paso7_verificacion_final(df, df_totales):
     print(f"  ❌ Días con errores: {len(set([e.split(':')[0] for e in errores]))}")
     print(f"  ⚠️  Advertencias: {len(advertencias)}")
     
-    if errores:
-        print(f"\n  ❌ ERRORES DETECTADOS:")
-        for error in errores[:10]:  # Mostrar máximo 10
-            print(f"     • {error}")
-        if len(errores) > 10:
-            print(f"     ... y {len(errores) - 10} errores más")
+    if dias_con_error:
+        print(f"\n  ❌ DÍAS CON ERRORES:")
+        print(f"  {'Fecha':<12} {'Negativos':<10} {'Total Real':<12} {'Esperado':<12} {'Diferencia':<12}")
+        print(f"  {'-'*60}")
+        for dia, negs, real, esperado, dif in dias_con_error[:10]:
+            esp_str = f"{esperado:.2f}€" if esperado else "N/A"
+            dif_str = f"{dif:+.2f}€" if esperado else "N/A"
+            print(f"  {dia}  {negs:<10} {real:>10.2f}€  {esp_str:>10}  {dif_str:>10}")
+        if len(dias_con_error) > 10:
+            print(f"  ... y {len(dias_con_error) - 10} días con errores más")
     
     if advertencias and not errores:
         print(f"\n  ⚠️  ADVERTENCIAS:")
@@ -906,15 +955,52 @@ def guardar_resultado(df, ruta_original):
     print(f"💾 Guardando en: {ruta_salida}")
     
     try:
-        # Guardar con openpyxl para mantener formato
+        # Obtener nombres de columnas
+        columnas = df.columns.tolist()
+        col_b = columnas[1]  # DIA
+        col_e = columnas[4]  # BASE
+        col_f = columnas[5]  # IVA
+        col_g = columnas[6]  # TOTAL Fra
+        col_h = columnas[7]  # COBRADO
+        
+        # 1. Convertir fechas a solo fecha (sin hora)
+        if pd.api.types.is_datetime64_any_dtype(df[col_b]):
+            df[col_b] = df[col_b].dt.date
+        
+        # 2. Forzar 2 decimales en columnas numéricas
+        for col in [col_e, col_f, col_g, col_h]:
+            df[col] = pd.to_numeric(df[col], errors='coerce').round(2)
+        
+        # Guardar inicialmente
         df.to_excel(ruta_salida, index=False, engine='openpyxl')
+        
+        # 3. Aplicar formato de número con 2 decimales en Excel
+        from openpyxl import load_workbook
+        from openpyxl.styles import numbers
+        
+        wb = load_workbook(ruta_salida)
+        ws = wb.active
+        
+        # Aplicar formato de número con 2 decimales a columnas E, F, G, H
+        # Columnas: E=5, F=6, G=7, H=8
+        for col_idx in [5, 6, 7, 8]:
+            for row in range(2, ws.max_row + 1):  # Desde fila 2 (después del encabezado)
+                cell = ws.cell(row=row, column=col_idx)
+                if cell.value is not None:
+                    cell.number_format = '0.00'
+        
+        wb.save(ruta_salida)
         
         print(f"✅ Archivo guardado exitosamente")
         print(f"📊 Total de registros: {len(df)}")
+        print(f"   ✓ Fechas sin hora")
+        print(f"   ✓ Importes con 2 decimales")
         
         return ruta_salida
     except Exception as e:
         print(f"❌ ERROR al guardar: {str(e)}")
+        import traceback
+        traceback.print_exc()
         return None
 
 def mostrar_resumen_final(df, ruta_salida):
@@ -956,68 +1042,103 @@ def mostrar_resumen_final(df, ruta_salida):
         
         print(f"  {dia}: {total:>10.2f}€  ({num_tickets} tickets)")
     
-    print("─" * 63)
     total_general = df[col_g].sum()
-    print(f"  TOTAL GENERAL: {total_general:>10.2f}€")
-    
+
+    print("\n░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░")
+    print("▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒")
+    print("▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓")
+    print(f" 💰 TOTAL GENERAL: {total_general:>10.2f}€")
+    print(f" 🎫 TOTAL TICKETS: {len(df)}")
+    print("▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓")
+    print("▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒")
+    print("░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░")
+        
     print(f"\n✅ Proceso completado exitosamente")
     print(f"📁 Archivo guardado en:\n   {ruta_salida}")
 
-def main():
-    """Función principal"""
-    try:
-        # Intentar obtener parámetros desde argumentos
+def procesar_archivo(usar_argumentos=True):
+    """Procesa un archivo completo"""
+    # Solo usar argumentos la primera vez
+    if usar_argumentos:
         ruta, ticket_inicial = obtener_parametros_desde_args()
-        
-        if ruta is None or ticket_inicial is None:
-            # Si no hay argumentos válidos, solicitar manualmente
-            limpiar_consola()
-            ruta = solicitar_archivo()
-            ticket_inicial = solicitar_ticket_inicial()
-        else:
+    else:
+        ruta, ticket_inicial = None, None
+    
+    if ruta is None or ticket_inicial is None:
+        # Si no hay argumentos válidos, solicitar manualmente
+        ruta = solicitar_archivo()
+        ticket_inicial = solicitar_ticket_inicial()
+    else:
         # Si hay argumentos válidos, mostrar información
-            print("╔═══════════════════════════════════════════════════════════╗")
-            print("║  SCRIPT DE AJUSTE DE FACTURAS DE RESTAURANTE              ║")
-            print("╚═══════════════════════════════════════════════════════════╝")
-            print(f"\n📁 Archivo: {os.path.basename(ruta)}")
-            print(f"🎫 Ticket inicial: {ticket_inicial}")
+        print("╔═══════════════════════════════════════════════════════════╗")
+        print("║  SCRIPT DE AJUSTE DE FACTURAS DE RESTAURANTE              ║")
+        print("╚═══════════════════════════════════════════════════════════╝")
+        print(f"\n📁 Archivo: {os.path.basename(ruta)}")
+        print(f"🎫 Ticket inicial: {ticket_inicial}")
+    
+    # Cargar Excel
+    df, df_totales, ruta_original = cargar_excel(ruta)
+    
+    # VALIDACIÓN PREVIA: Verificar estructura del archivo
+    validar_estructura_archivo(df, df_totales, ruta_original)
+    
+    # PASO 1: Fusionar columnas
+    df = paso1_fusionar_columnas(df)
+    
+    # PASO 2: Eliminar filas problemáticas
+    df = paso2_eliminar_filas_problematicas(df)
+    
+    # PASO 3: Ajustar totales por día
+    df = paso3_ajustar_totales_por_dia(df, df_totales)
+    
+    # PASO 4: Añadir ticket negativo al final de cada día
+    df = paso4_añadir_ticket_negativo(df)
+    
+    # PASO 5: Compensar tickets negativos
+    df = paso5_compensar_tickets_negativos(df, df_totales)
+    
+    # PASO 6: Hacer tickets correlativos (AL FINAL)
+    df, ultimo_ticket = paso6_hacer_tickets_correlativos(df, ticket_inicial)
+    
+    # PASO 7: Verificación final
+    df = paso7_verificacion_final(df, df_totales)
+    
+    # Guardar resultado
+    ruta_salida = guardar_resultado(df, ruta_original)
+    
+    if ruta_salida:
+        # Mostrar resumen final
+        mostrar_resumen_final(df, ruta_salida)
+
+def main():
+    """Función principal con bucle de repetición"""
+    try:
+        primera_vez = True
         
-        # Cargar Excel
-        df, df_totales, ruta_original = cargar_excel(ruta)
-        
-        # VALIDACIÓN PREVIA: Verificar estructura del archivo
-        validar_estructura_archivo(df, df_totales, ruta_original)
-        
-        # PASO 1: Fusionar columnas
-        df = paso1_fusionar_columnas(df)
-        
-        # PASO 2: Eliminar filas problemáticas
-        df = paso2_eliminar_filas_problematicas(df)
-        
-        # PASO 3: Ajustar totales por día
-        df = paso3_ajustar_totales_por_dia(df, df_totales)
-        
-        # PASO 4: Añadir ticket negativo al final de cada día
-        df = paso4_añadir_ticket_negativo(df)
-        
-        # PASO 5: Compensar tickets negativos
-        df = paso5_compensar_tickets_negativos(df, df_totales)
-        
-        # PASO 6: Hacer tickets correlativos (AL FINAL)
-        df, ultimo_ticket = paso6_hacer_tickets_correlativos(df, ticket_inicial)
-        
-        # PASO 7: Verificación final
-        df = paso7_verificacion_final(df, df_totales)
-        
-        # Guardar resultado
-        ruta_salida = guardar_resultado(df, ruta_original)
-        
-        if ruta_salida:
-            # Mostrar resumen final
-            mostrar_resumen_final(df, ruta_salida)
-        
-        print("\n" + "=" * 60)
-        input("\n✅ Presiona ENTER para salir...")
+        while True:
+            # Limpiar consola al inicio de cada iteración (excepto la primera)
+            if not primera_vez:
+                limpiar_consola()
+            
+            # Procesar archivo (usar argumentos solo la primera vez)
+            procesar_archivo(usar_argumentos=primera_vez)
+            primera_vez = False
+            
+            # Preguntar si quiere procesar otro archivo
+            print("\n" + "░" * 60)
+            print("\n¿Qué deseas hacer?")
+            print("  [1] Procesar otro archivo")
+            print("  [2] Salir")
+            print()
+            
+            opcion = input("Selecciona una opción (1 o 2): ").strip()
+            
+            if opcion == "2":
+                print("\n👋 ¡Hasta pronto!")
+                break
+            elif opcion != "1":
+                print("\n⚠️  Opción no válida. Saliendo...")
+                break
         
     except KeyboardInterrupt:
         print("\n\n⚠️  Proceso cancelado por el usuario")
