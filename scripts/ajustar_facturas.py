@@ -28,21 +28,68 @@ def limpiar_consola():
     os.system('cls' if os.name == 'nt' else 'clear')
 
 def solicitar_archivo():
-    """Solicita al usuario la ruta del archivo Excel"""
-    print("░░░░▒▒▒▒▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▒▒▒▒░░░░")
-    print("░░░░▒▒▒▒▓▓▓                    SIGUIENTE ARCHIVO                    ▓▓▓▒▒▒▒░░░░")
-    print("░░░░▒▒▒▒▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▒▒▒▒░░░░")
-    print("\nPor favor, arrastra el archivo Excel aquí y presiona ENTER:")
-    print("(o escribe la ruta completa del archivo)\n")
+    """Muestra un menú de archivos disponibles en la carpeta 'archivos/'"""
+    # Obtener directorio raíz (padre de 'scripts')
+    dir_script = os.path.dirname(os.path.abspath(__file__))
+    dir_raiz = os.path.dirname(dir_script)  # Subir un nivel desde 'scripts/'
+    carpeta_archivos = os.path.join(dir_raiz, 'archivos')
     
-    ruta = input("\nRuta del archivo: ").strip().strip('"').strip("'")
+    # Crear carpeta si no existe
+    if not os.path.exists(carpeta_archivos):
+        os.makedirs(carpeta_archivos)
+        print("╔═══════════════════════════════════════════════════════════╗")
+        print("║    Carpeta 'archivos' creada                              ║")
+        print("╚═══════════════════════════════════════════════════════════╝")
+        print(f"\nPor favor, copia tus archivos en:")
+        print(f"  {carpeta_archivos}")
+        input("\nPresiona ENTER cuando hayas copiado los archivos...")
     
-    if not os.path.exists(ruta):
-        print(f"\n❌ ERROR: El archivo no existe: {ruta}")
+    # Buscar archivos válidos (Excel y TXT)
+    extensiones_validas = ['.xls', '.xlsx', '.txt', '.csv']
+    archivos_disponibles = []
+    
+    for archivo in os.listdir(carpeta_archivos):
+        ext = os.path.splitext(archivo)[1].lower()
+        if ext in extensiones_validas:
+            ruta_completa = os.path.join(carpeta_archivos, archivo)
+            archivos_disponibles.append((archivo, ruta_completa))
+    
+    if not archivos_disponibles:
+        print("╔═══════════════════════════════════════════════════════════╗")
+        print("║     ERROR: No hay archivos en la carpeta 'archivos'       ║")
+        print("╚═══════════════════════════════════════════════════════════╝")
+        print(f"\nCopia archivos (.xls, .xlsx, .txt, .csv) en:")
+        print(f"  {carpeta_archivos}")
         input("\nPresiona ENTER para salir...")
         sys.exit(1)
     
-    return ruta
+    # Mostrar menú
+    print("░░░░▒▒▒▒▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▒▒▒▒░░░░")
+    print("░░░░▒▒▒▒▓▓▓              SELECCIONA ARCHIVO PRINCIPAL               ▓▓▓▒▒▒▒░░░░")
+    print("░░░░▒▒▒▒▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▒▒▒▒░░░░")
+    print()
+    
+    for i, (nombre, _) in enumerate(archivos_disponibles, 1):
+        print(f"  [{i}] {nombre}")
+    
+    print()
+    while True:
+        try:
+            seleccion = input("Selecciona el número del archivo (o 0 para salir): ").strip()
+            num = int(seleccion)
+            
+            if num == 0:
+                print("\n👋 Saliendo...")
+                sys.exit(0)
+            
+            if 1 <= num <= len(archivos_disponibles):
+                archivo_seleccionado = archivos_disponibles[num - 1][1]
+                print(f"\n✅ Archivo seleccionado: {archivos_disponibles[num - 1][0]}")
+                return archivo_seleccionado
+            else:
+                print(f"❌ Por favor, selecciona un número entre 1 y {len(archivos_disponibles)}")
+        except ValueError:
+            print("❌ Por favor, ingresa un número válido")
 
 def solicitar_ticket_inicial():
     """Solicita el número de ticket inicial"""
@@ -78,28 +125,62 @@ def cargar_archivo(ruta):
     if extension in ['.txt', '.csv']:
         df = cargar_archivo_texto(ruta)
         
-        # Preguntar por archivo de TOTALES
-        print("\n▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓")
-        print("▓      ¿TIENES UN ARCHIVO DE TOTALES?                ▓")
-        print("▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓")
-        print("\nPor favor, arrastra el archivo de TOTALES (.txt) aquí:")
-        print("(o presiona ENTER para omitir)\n")
+        # Preguntar por archivo de TOTALES desde la carpeta 'archivos'
+        dir_script = os.path.dirname(os.path.abspath(__file__))
+        dir_raiz = os.path.dirname(dir_script)  # Subir un nivel desde 'scripts/'
+        carpeta_archivos = os.path.join(dir_raiz, 'archivos')
         
-        ruta_totales = input("Ruta del archivo TOTALES: ").strip().strip('"').strip("'")
+        # Buscar archivos de totales disponibles
+        archivos_totales = []
+        for archivo in os.listdir(carpeta_archivos):
+            # Buscar archivos que contengan "total" en el nombre o sean .txt/.csv
+            nombre_lower = archivo.lower()
+            ext = os.path.splitext(archivo)[1].lower()
+            if ('total' in nombre_lower or ext in ['.txt', '.csv']) and archivo != os.path.basename(ruta):
+                ruta_completa = os.path.join(carpeta_archivos, archivo)
+                archivos_totales.append((archivo, ruta_completa))
         
-        if ruta_totales and os.path.exists(ruta_totales):
-            ext_totales = os.path.splitext(ruta_totales)[1].lower()
-            if ext_totales == '.txt':
-                df_totales = cargar_totales_texto(ruta_totales)
-            elif ext_totales in ['.xls', '.xlsx']:
-                # Cargar como Excel sin encabezados
-                df_totales = pd.read_excel(ruta_totales, header=None, engine='openpyxl')
-            else:
-                print("⚠️  Formato no soportado para TOTALES")
-                df_totales = None
+        df_totales = None
+        
+        if archivos_totales:
+            print("\n▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓")
+            print("▓      ¿DESEAS USAR UN ARCHIVO DE TOTALES?           ▓")
+            print("▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓")
+            print()
+            print("  [0] No usar archivo de TOTALES")
+            
+            for i, (nombre, _) in enumerate(archivos_totales, 1):
+                print(f"  [{i}] {nombre}")
+            
+            print()
+            while True:
+                try:
+                    seleccion = input("Selecciona una opción: ").strip()
+                    num = int(seleccion)
+                    
+                    if num == 0:
+                        print("⚠️  No se cargará archivo de TOTALES")
+                        break
+                    
+                    if 1 <= num <= len(archivos_totales):
+                        ruta_totales = archivos_totales[num - 1][1]
+                        ext_totales = os.path.splitext(ruta_totales)[1].lower()
+                        
+                        if ext_totales == '.txt':
+                            df_totales = cargar_totales_texto(ruta_totales)
+                        elif ext_totales in ['.xls', '.xlsx']:
+                            df_totales = pd.read_excel(ruta_totales, header=None, engine='openpyxl')
+                        else:
+                            print("⚠️  Formato no soportado para TOTALES")
+                        
+                        print(f"✅ Archivo TOTALES cargado: {archivos_totales[num - 1][0]}")
+                        break
+                    else:
+                        print(f"❌ Por favor, selecciona un número entre 0 y {len(archivos_totales)}")
+                except ValueError:
+                    print("❌ Por favor, ingresa un número válido")
         else:
-            print("⚠️  No se cargará archivo de TOTALES")
-            df_totales = None
+            print("\n⚠️  No se encontró archivo de TOTALES en la carpeta")
         
         return df, df_totales, ruta, True  # True = es texto
     
@@ -766,23 +847,17 @@ def paso3_ajustar_totales_por_dia(df, df_totales):
     return df
 
 def paso4_añadir_ticket_negativo(df):
-    """Añade un ticket negativo al final de cada día (0.8-1.0% del total)"""
+    """NO HACE NADA - El ticket de compensación se añade en paso5 según la diferencia"""
     print("\n╔═════════════════════════════════════════════════════════════════════════════╗")
-    print("║  PASO 4: Añadiendo ticket negativo al final del día                         ║")
+    print("║  PASO 4: Preparando para añadir tickets de compensación                     ║")
     print("╚═════════════════════════════════════════════════════════════════════════════╝")
     
-    columnas = df.columns.tolist()
-    col_a = columnas[0]  # Local
-    col_b = columnas[1]  # DIA
-    col_c = columnas[2]  # Hora
-    col_d = columnas[3]  # NºFactura
-    col_e = columnas[4]  # BASE
-    col_f = columnas[5]  # IVA
-    col_g = columnas[6]  # TOTAL Fra
-    col_h = columnas[7]  # COBRADO
-    col_j = columnas[9] if len(columnas) > 9 else 'INVITACIONES'  # INVITACIONES
+    print("⏩ Este paso se ejecutará en el PASO 5 junto con los tickets intermedios")
     
-    # Normalizar fechas a Timestamp sin hora
+    # Solo normalizar fechas para el siguiente paso
+    columnas = df.columns.tolist()
+    col_b = columnas[1]  # DIA
+    
     if '_fecha_temp' in df.columns:
         df = df.drop('_fecha_temp', axis=1)
     
@@ -792,62 +867,12 @@ def paso4_añadir_ticket_negativo(df):
     df[col_b] = df[col_b].dt.normalize()
     df['_fecha_temp'] = df[col_b]
     
-    dias_unicos = sorted([d for d in df['_fecha_temp'].dropna().unique()])
-    filas_nuevas = []
-    
-    print(f"\n🔍 Procesando {len(dias_unicos)} días...")
-    for idx, dia in enumerate(dias_unicos, 1):
-        barra_progreso(idx, len(dias_unicos), prefijo='PASO 4: Tickets negativos', sufijo='días')
-        mask = df['_fecha_temp'] == dia
-        registros_dia = df[mask].copy()
-        
-        total_dia = registros_dia[col_g].sum()
-        porcentaje = random.uniform(0.008, 0.010)  # 0.8% - 1.0%
-        importe_negativo = -1 * (total_dia * porcentaje)
-        
-        # Obtener datos del último registro
-        ultimo_registro = registros_dia.iloc[-1]
-        ultimo_ticket = int(ultimo_registro[col_d])
-        local = ultimo_registro[col_a]
-        
-        # Crear hora final (sin segundos)
-        hora_final = "23:59"
-        
-        # Calcular BASE e IVA negativos (redondear a 2 decimales)
-        base_neg = round(importe_negativo / 1.07, 2)
-        iva_neg = round(importe_negativo - base_neg, 2)
-        
-        nueva_fila = {
-            col_a: local,
-            col_b: dia,  # Ya es Timestamp normalizado
-            col_c: hora_final,
-            col_d: ultimo_ticket + 1,
-            col_e: round(base_neg, 2),
-            col_f: round(iva_neg, 2),
-            col_g: round(importe_negativo, 2),
-            col_h: 0,
-            col_j: round(importe_negativo, 2)
-        }
-        
-        # Añadir columnas restantes vacías
-        for col_idx in range(len(columnas)):
-            if columnas[col_idx] not in nueva_fila:
-                nueva_fila[columnas[col_idx]] = ''
-        
-        filas_nuevas.append(nueva_fila)
-    
-    # Añadir las filas al DataFrame
-    if filas_nuevas:
-        df_nuevas = pd.DataFrame(filas_nuevas)
-        df = pd.concat([df, df_nuevas], ignore_index=True)
-        df = df.sort_values([col_b, col_c]).reset_index(drop=True)
-    
     return df
 
 def paso5_compensar_tickets_negativos(df, df_totales):
-    """Añade 2 tickets positivos ENTRE los registros normales para compensar el negativo"""
+    """Añade tickets de compensación según la diferencia y ticket final de invitación"""
     print("\n╔═════════════════════════════════════════════════════════════════════════════╗")
-    print("║  PASO 5: Compensando tickets negativos (2 tickets ENTRE los normales)       ║")
+    print("║  PASO 5: Aplicando lógica de compensación y tickets de invitación           ║")
     print("╚═════════════════════════════════════════════════════════════════════════════╝")
     
     columnas = df.columns.tolist()
@@ -886,123 +911,181 @@ def paso5_compensar_tickets_negativos(df, df_totales):
     df_final = pd.DataFrame()
     
     print(f"\n🔍 Procesando {len(dias_unicos)} días...")
-    dias_compensados = 0
+    dias_caso1 = 0  # Total < Esperado
+    dias_caso2 = 0  # Total > Esperado
+    dias_caso3 = 0  # Total = Esperado
+    
     for idx, dia in enumerate(dias_unicos, 1):
-        barra_progreso(idx, len(dias_unicos), prefijo='PASO 5: Compensando negativos', sufijo='días')
+        barra_progreso(idx, len(dias_unicos), prefijo='PASO 5: Compensación', sufijo='días')
         mask = df['_fecha_temp'] == dia
         registros_dia = df[mask].copy().reset_index(drop=True)
-        
-        # Identificar el ticket negativo (último del día)
-        idx_negativo = len(registros_dia) - 1
-        ticket_negativo = registros_dia.iloc[idx_negativo]
-        importe_negativo = abs(ticket_negativo[col_g])
         
         # Calcular totales
         total_actual = registros_dia[col_g].sum()
         total_esperado = totales_esperados.get(dia, total_actual)
         diferencia = total_esperado - total_actual
         
-        if abs(diferencia) < 0.01:
-            df_final = pd.concat([df_final, registros_dia], ignore_index=True)
-            continue
-        
-        dias_compensados += 1
-        
-        # Dividir compensación en 2 tickets con importes aleatorios
-        total_compensacion = abs(diferencia)
-        porcentaje_ticket1 = random.uniform(0.4, 0.6)  # Entre 40% y 60%
-        importe_ticket1 = round(total_compensacion * porcentaje_ticket1, 2)
-        importe_ticket2 = round(total_compensacion - importe_ticket1, 2)
-        
-        # Elegir posiciones aleatorias ENTRE los tickets normales (no al final)
-        num_normales = len(registros_dia) - 1  # Sin contar el negativo
-        if num_normales < 2:
-            posiciones = [0, 0]
-        else:
-            # Insertar en el medio del día (entre 30% y 70% del día)
-            pos_min = int(num_normales * 0.3)
-            pos_max = int(num_normales * 0.7)
-            if pos_max <= pos_min:
-                pos_max = pos_min + 1
-            
-            pos1 = random.randint(pos_min, pos_max)
-            pos2 = random.randint(pos_min, pos_max)
-            if pos2 == pos1:
-                pos2 = min(pos1 + random.randint(1, 3), num_normales - 1)
-            
-            posiciones = sorted([pos1, pos2])
-        
         # Obtener datos de referencia
         local = registros_dia.iloc[0][col_a]
+        ultimo_registro = registros_dia.iloc[-1]
         
-        # Crear los 2 tickets de compensación
-        tickets_compensacion = []
-        for idx, (pos, importe) in enumerate(zip(posiciones, [importe_ticket1, importe_ticket2])):
-            # Obtener hora de referencia del registro en esa posición
-            if pos < len(registros_dia) - 1:
-                hora_ref = registros_dia.iloc[pos][col_c]
-            else:
-                hora_ref = registros_dia.iloc[-2][col_c] if len(registros_dia) > 1 else '23:50'
+        # Calcular importe aleatorio (0.8% - 1.0% del total esperado)
+        porcentaje_aleatorio = random.uniform(0.008, 0.010)
+        importe_aleatorio = round(total_esperado * porcentaje_aleatorio, 2)
+        
+        # CASO 1: Total < Esperado (Faltan ingresos)
+        if diferencia > 0.01:
+            dias_caso1 += 1
             
-            # Calcular hora (añadir segundos aleatorios)
-            if isinstance(hora_ref, str):
-                try:
-                    hora_dt = datetime.strptime(hora_ref, '%H:%M:%S')
-                except:
+            # Total a compensar con tickets intermedios: diferencia + importe_aleatorio
+            total_compensacion = round(diferencia + importe_aleatorio, 2)
+            
+            # Dividir en 2 tickets con importes aleatorios
+            porcentaje_ticket1 = random.uniform(0.4, 0.6)
+            importe_ticket1 = round(total_compensacion * porcentaje_ticket1, 2)
+            importe_ticket2 = round(total_compensacion - importe_ticket1, 2)
+            
+            # Ticket final de invitación NEGATIVO
+            ticket_invitacion_importe = -importe_aleatorio
+            
+        # CASO 2: Total > Esperado (Sobran ingresos)
+        elif diferencia < -0.01:
+            dias_caso2 += 1
+            
+            # NO crear tickets intermedios
+            importe_ticket1 = 0
+            importe_ticket2 = 0
+            
+            # Ticket final de invitación NEGATIVO por la diferencia
+            ticket_invitacion_importe = diferencia  # Ya es negativo
+            
+        # CASO 3: Total = Esperado (Exacto)
+        else:
+            dias_caso3 += 1
+            
+            # Total a compensar con tickets intermedios: importe_aleatorio
+            total_compensacion = importe_aleatorio
+            
+            # Dividir en 2 tickets con importes aleatorios
+            porcentaje_ticket1 = random.uniform(0.4, 0.6)
+            importe_ticket1 = round(total_compensacion * porcentaje_ticket1, 2)
+            importe_ticket2 = round(total_compensacion - importe_ticket1, 2)
+            
+            # Ticket final de invitación NEGATIVO
+            ticket_invitacion_importe = -importe_aleatorio
+        
+        # INSERTAR TICKETS INTERMEDIOS (si corresponde)
+        registros_finales = registros_dia.copy()
+        
+        if importe_ticket1 > 0 and importe_ticket2 > 0:
+            # Elegir posiciones aleatorias ENTRE los tickets normales
+            num_registros = len(registros_dia)
+            if num_registros < 2:
+                posiciones = [0, 0]
+            else:
+                # Insertar en el medio del día (entre 30% y 70%)
+                pos_min = int(num_registros * 0.3)
+                pos_max = int(num_registros * 0.7)
+                if pos_max <= pos_min:
+                    pos_max = pos_min + 1
+                
+                pos1 = random.randint(pos_min, pos_max)
+                pos2 = random.randint(pos_min, pos_max)
+                if pos2 == pos1:
+                    pos2 = min(pos1 + random.randint(1, 3), num_registros - 1)
+                
+                posiciones = sorted([pos1, pos2])
+            
+            # Crear los 2 tickets de compensación
+            tickets_compensacion = []
+            for pos, importe in zip(posiciones, [importe_ticket1, importe_ticket2]):
+                # Obtener hora de referencia
+                if pos < len(registros_dia):
+                    hora_ref = registros_dia.iloc[pos][col_c]
+                else:
+                    hora_ref = registros_dia.iloc[-1][col_c]
+                
+                # Calcular hora (añadir segundos aleatorios)
+                if isinstance(hora_ref, str):
                     try:
-                        hora_dt = datetime.strptime(hora_ref, '%H:%M')
+                        hora_dt = datetime.strptime(hora_ref, '%H:%M:%S')
                     except:
-                        hora_dt = datetime.strptime('23:50:00', '%H:%M:%S')
-            else:
-                hora_dt = hora_ref
+                        try:
+                            hora_dt = datetime.strptime(hora_ref, '%H:%M')
+                        except:
+                            hora_dt = datetime.strptime('12:00:00', '%H:%M:%S')
+                else:
+                    hora_dt = hora_ref
+                
+                nueva_hora = (hora_dt + timedelta(seconds=random.randint(10, 50))).strftime('%H:%M')
+                
+                # Calcular BASE e IVA
+                base = round(importe / 1.07, 2)
+                iva = round(importe - base, 2)
+                
+                nueva_fila = {
+                    col_a: local,
+                    col_b: dia,
+                    col_c: nueva_hora,
+                    col_d: 999999,  # Temporal
+                    col_e: round(base, 2),
+                    col_f: round(iva, 2),
+                    col_g: round(importe, 2),
+                    col_h: round(importe, 2),
+                }
+                
+                # Añadir columnas restantes vacías
+                for col_idx in range(8, len(columnas)):
+                    nueva_fila[columnas[col_idx]] = ''
+                
+                tickets_compensacion.append(nueva_fila)
             
-            nueva_hora = (hora_dt + timedelta(seconds=random.randint(10, 50))).strftime('%H:%M')
-            
-            # Calcular BASE e IVA con 2 decimales exactos
-            base = round(importe / 1.07, 2)
-            iva = round(importe - base, 2)
-            
-            nueva_fila = {
-                col_a: local,
-                col_b: dia,  # Ya es Timestamp normalizado
-                col_c: nueva_hora,
-                col_d: 999999,  # Temporal, se renumerará en paso6
-                col_e: round(base, 2),
-                col_f: round(iva, 2),
-                col_g: round(importe, 2),
-                col_h: round(importe, 2),
-            }
-            
-            # Añadir columnas restantes vacías
-            for col_idx in range(8, len(columnas)):
-                nueva_fila[columnas[col_idx]] = ''
-            
-            tickets_compensacion.append((posiciones[idx] + idx, nueva_fila))
+            # Insertar tickets en posiciones correspondientes
+            for i, (pos, ticket) in enumerate(zip(posiciones, tickets_compensacion)):
+                pos_ajustada = pos + i  # Ajustar por tickets ya insertados
+                ticket_df = pd.DataFrame([ticket])
+                registros_finales = pd.concat([
+                    registros_finales.iloc[:pos_ajustada],
+                    ticket_df,
+                    registros_finales.iloc[pos_ajustada:]
+                ], ignore_index=True)
         
-        # Insertar los tickets en las posiciones correspondientes
-        # Primero separar negativos del resto
-        registros_normales = registros_dia.iloc[:-1].copy()  # Sin el negativo
+        # AÑADIR TICKET FINAL DE INVITACIÓN
+        # Calcular BASE e IVA del ticket de invitación
+        base_inv = round(ticket_invitacion_importe / 1.07, 2)
+        iva_inv = round(ticket_invitacion_importe - base_inv, 2)
         
-        # Insertar tickets de compensación
-        for pos, ticket in tickets_compensacion:
-            pos_ajustada = min(pos, len(registros_normales))
-            ticket_df = pd.DataFrame([ticket])
-            registros_normales = pd.concat([
-                registros_normales.iloc[:pos_ajustada],
-                ticket_df,
-                registros_normales.iloc[pos_ajustada:]
-            ], ignore_index=True)
+        ticket_invitacion = {
+            col_a: local,
+            col_b: dia,
+            col_c: "23:59",
+            col_d: 999999,  # Temporal
+            col_e: round(base_inv, 2),
+            col_f: round(iva_inv, 2),
+            col_g: round(ticket_invitacion_importe, 2),
+            col_h: 0,  # COBRADO = 0
+        }
         
-        # Añadir el ticket negativo al final
-        ticket_neg_df = pd.DataFrame([ticket_negativo])
-        registros_completos = pd.concat([registros_normales, ticket_neg_df], ignore_index=True)
+        # Añadir columnas restantes vacías PRIMERO
+        for col_idx in range(len(columnas)):
+            if columnas[col_idx] not in ticket_invitacion:
+                ticket_invitacion[columnas[col_idx]] = ''
         
-        df_final = pd.concat([df_final, registros_completos], ignore_index=True)
+        # LUEGO establecer INVITACIONES con el importe negativo
+        ticket_invitacion[col_j] = round(ticket_invitacion_importe, 2)
+        
+        ticket_inv_df = pd.DataFrame([ticket_invitacion])
+        registros_finales = pd.concat([registros_finales, ticket_inv_df], ignore_index=True)
+        
+        df_final = pd.concat([df_final, registros_finales], ignore_index=True)
     
     # Ordenar por fecha y hora
     df_final = df_final.sort_values([col_b, col_c]).reset_index(drop=True)
     
-    print(f"✅ Completado: {dias_compensados} días compensados con 2 tickets cada uno")
+    print(f"\n✅ Completado:")
+    print(f"   • Caso 1 (Total < Esperado): {dias_caso1} días")
+    print(f"   • Caso 2 (Total > Esperado): {dias_caso2} días")
+    print(f"   • Caso 3 (Total = Esperado): {dias_caso3} días")
     
     return df_final
 
@@ -1127,55 +1210,163 @@ def guardar_resultado(df, ruta_original):
     if '_fecha_temp' in df.columns:
         df = df.drop('_fecha_temp', axis=1)
     
+    # ELIMINAR COLUMNAS NO DESEADAS
+    columnas_eliminar = ['Descuentos', '_Mesa', '_PAX', '_Camarero', '_Ticket MIX', 'Tarjeta', 'Tarjetas']
+    columnas_encontradas = [col for col in columnas_eliminar if col in df.columns]
+    
+    if columnas_encontradas:
+        print(f"\n🗑️  Eliminando columnas: {', '.join(columnas_encontradas)}")
+        df = df.drop(columns=columnas_encontradas, errors='ignore')
+    
+    # Crear carpeta 'resultados' si no existe
+    dir_script = os.path.dirname(os.path.abspath(__file__))
+    dir_raiz = os.path.dirname(dir_script)  # Subir un nivel desde 'scripts/'
+    carpeta_resultados = os.path.join(dir_raiz, 'resultados')
+    
+    if not os.path.exists(carpeta_resultados):
+        os.makedirs(carpeta_resultados)
+        print(f"📁 Carpeta 'resultados' creada")
+    
     # Crear nombre del archivo de salida
-    dir_original = os.path.dirname(ruta_original)
     nombre_original = os.path.basename(ruta_original)
     nombre_sin_ext = os.path.splitext(nombre_original)[0]
     timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-    nombre_salida = f"{nombre_sin_ext}_AJUSTADO_{timestamp}.xlsx"
-    ruta_salida = os.path.join(dir_original, nombre_salida)
     
-    print(f"💾 Guardando en: {ruta_salida}")
+    print(f"\n💾 Preparando archivo de salida...")
     
     try:
-        # Obtener nombres de columnas
+        # Obtener nombres de columnas después de eliminar
         columnas = df.columns.tolist()
-        col_b = columnas[1]  # DIA
-        col_e = columnas[4]  # BASE
-        col_f = columnas[5]  # IVA
-        col_g = columnas[6]  # TOTAL Fra
-        col_h = columnas[7]  # COBRADO
+        col_b = columnas[1] if len(columnas) > 1 else None  # DIA
+        col_e = columnas[4] if len(columnas) > 4 else None  # BASE
+        col_f = columnas[5] if len(columnas) > 5 else None  # IVA
+        col_g = columnas[6] if len(columnas) > 6 else None  # TOTAL Fra
+        col_h = columnas[7] if len(columnas) > 7 else None  # COBRADO
         
         # 1. Convertir fechas a solo fecha (sin hora)
-        if pd.api.types.is_datetime64_any_dtype(df[col_b]):
+        if col_b and pd.api.types.is_datetime64_any_dtype(df[col_b]):
             df[col_b] = df[col_b].dt.date
         
         # 2. Forzar 2 decimales en columnas numéricas
         for col in [col_e, col_f, col_g, col_h]:
-            df[col] = pd.to_numeric(df[col], errors='coerce').round(2)
+            if col:
+                df[col] = pd.to_numeric(df[col], errors='coerce').round(2)
         
-        # Guardar inicialmente
-        df.to_excel(ruta_salida, index=False, engine='openpyxl')
+        # PREGUNTAR FORMATO DE SALIDA
+        print("\n╔═══════════════════════════════════════════════════════════╗")
+        print("║        ¿EN QUÉ FORMATO DESEAS GUARDAR EL ARCHIVO?         ║")
+        print("╚═══════════════════════════════════════════════════════════╝")
+        print("\n  [1] Excel (.xlsx) - Formato con estilos y colores")
+        print("  [2] Texto (.txt) - Formato de tabla ASCII")
+        print()
         
-        # 3. Aplicar formato de número con 2 decimales en Excel
-        from openpyxl import load_workbook
-        from openpyxl.styles import numbers
+        while True:
+            formato = input("Selecciona una opción (1 o 2): ").strip()
+            if formato in ['1', '2']:
+                break
+            print("⚠️  Por favor, selecciona 1 o 2")
         
-        wb = load_workbook(ruta_salida)
-        ws = wb.active
+        if formato == '1':
+            # GUARDAR COMO EXCEL
+            nombre_salida = f"{nombre_sin_ext}_AJUSTADO_{timestamp}.xlsx"
+            ruta_salida = os.path.join(carpeta_resultados, nombre_salida)
+            
+            print(f"\n💾 Guardando archivo Excel...")
+            print(f"⏳ Procesando {len(df)} registros...")
+            
+            df.to_excel(ruta_salida, index=False, engine='openpyxl')
+            
+            # 3. Aplicar formato de número con 2 decimales en Excel
+            from openpyxl import load_workbook
+            from openpyxl.styles import numbers
+            
+            print("   🎨 Aplicando formato de números...")
+            wb = load_workbook(ruta_salida)
+            ws = wb.active
+            
+            # Aplicar formato de número con 2 decimales a columnas numéricas
+            for col_idx in range(5, min(9, len(columnas) + 1)):
+                for row in range(2, ws.max_row + 1):
+                    cell = ws.cell(row=row, column=col_idx)
+                    if cell.value is not None:
+                        try:
+                            float(cell.value)
+                            cell.number_format = '0.00'
+                        except:
+                            pass
+            
+            print("   💾 Guardando cambios...")
+            wb.save(ruta_salida)
+            
+            print(f"\n✅ Archivo Excel guardado exitosamente")
+            print(f"📁 resultados/{nombre_salida}")
         
-        # Aplicar formato de número con 2 decimales a columnas E, F, G, H
-        # Columnas: E=5, F=6, G=7, H=8
-        for col_idx in [5, 6, 7, 8]:
-            for row in range(2, ws.max_row + 1):  # Desde fila 2 (después del encabezado)
-                cell = ws.cell(row=row, column=col_idx)
-                if cell.value is not None:
-                    cell.number_format = '0.00'
+        else:
+            # GUARDAR COMO TEXTO CON FORMATO ASCII
+            nombre_salida = f"{nombre_sin_ext}_AJUSTADO_{timestamp}.txt"
+            ruta_salida = os.path.join(carpeta_resultados, nombre_salida)
+            
+            print(f"\n💾 Guardando archivo de texto...")
+            print(f"⏳ Procesando {len(df)} registros (puede tardar unos segundos)...")
+            
+            with open(ruta_salida, 'w', encoding='utf-8-sig') as f:
+                # Calcular anchos de columna
+                print("   📐 Calculando anchos de columna...")
+                anchos = []
+                for col in df.columns:
+                    max_ancho = max(
+                        len(str(col)),
+                        df[col].astype(str).str.len().max() if len(df) > 0 else 0
+                    )
+                    anchos.append(max_ancho + 2)
+                
+                # Línea superior
+                print("   🎨 Generando encabezados...")
+                f.write('┌' + '┬'.join(['─' * ancho for ancho in anchos]) + '┐\n')
+                
+                # Encabezados
+                encabezados = []
+                for col, ancho in zip(df.columns, anchos):
+                    encabezados.append(str(col).ljust(ancho))
+                f.write('│' + '│'.join(encabezados) + '│\n')
+                
+                # Línea separadora
+                f.write('├' + '┼'.join(['─' * ancho for ancho in anchos]) + '┤\n')
+                
+                # Datos con barra de progreso
+                print("   📝 Escribiendo datos...")
+                total_filas = len(df)
+                for idx, (_, row) in enumerate(df.iterrows(), 1):
+                    valores = []
+                    for val, ancho in zip(row, anchos):
+                        # Formatear valores según tipo
+                        if pd.isna(val) or val == '' or val == ' ':
+                            # Valores vacíos o nulos
+                            val_str = ''
+                        elif isinstance(val, (int, float)):
+                            # Números: formatear con 2 decimales
+                            val_str = f"{val:.2f}"
+                        else:
+                            # Texto: convertir a string
+                            val_str = str(val)
+                        valores.append(val_str.ljust(ancho))
+                    f.write('│' + '│'.join(valores) + '│\n')
+                    
+                    # Mostrar progreso cada 100 filas
+                    if idx % 100 == 0 or idx == total_filas:
+                        barra_progreso(idx, total_filas, prefijo='      ', sufijo='filas escritas')
+                
+                # Línea inferior
+                print("\n   🎨 Finalizando formato...")
+                f.write('└' + '┴'.join(['─' * ancho for ancho in anchos]) + '┘\n')
+            
+            print(f"\n✅ Archivo de texto guardado exitosamente")
+            print(f"📁 resultados/{nombre_salida}")
+            print(f"   ✓ Formato tabla ASCII con caracteres de caja")
         
-        wb.save(ruta_salida)
-        
-        print(f"✅ Archivo guardado exitosamente")
-        print(f"📊 Total de registros: {len(df)}")
+        print(f"\n📊 Total de registros: {len(df)}")
+        print(f"📋 Columnas eliminadas: {len(columnas_encontradas)}")
+        print(f"📂 Ubicación: {carpeta_resultados}")
         print(f"   ✓ Fechas sin hora")
         print(f"   ✓ Importes con 2 decimales")
         
@@ -1239,25 +1430,11 @@ def mostrar_resumen_final(df, ruta_salida):
     print(f"\n✅ Proceso completado exitosamente")
     print(f"📁 Archivo guardado en:\n   {ruta_salida}")
 
-def procesar_archivo(usar_argumentos=True):
+def procesar_archivo(usar_argumentos=False):
     """Procesa un archivo completo"""
-    # Solo usar argumentos la primera vez
-    if usar_argumentos:
-        ruta, ticket_inicial = obtener_parametros_desde_args()
-    else:
-        ruta, ticket_inicial = None, None
-    
-    if ruta is None or ticket_inicial is None:
-        # Si no hay argumentos válidos, solicitar manualmente
-        ruta = solicitar_archivo()
-        ticket_inicial = solicitar_ticket_inicial()
-    else:
-        # Si hay argumentos válidos, mostrar información
-        print("╔═══════════════════════════════════════════════════════════╗")
-        print("║  SCRIPT DE AJUSTE DE FACTURAS DE RESTAURANTE              ║")
-        print("╚═══════════════════════════════════════════════════════════╝")
-        print(f"\n📁 Archivo: {os.path.basename(ruta)}")
-        print(f"🎫 Ticket inicial: {ticket_inicial}")
+    # SIEMPRE usar el menú de selección (no argumentos)
+    ruta = solicitar_archivo()
+    ticket_inicial = solicitar_ticket_inicial()
     
     # Cargar archivo (detecta automáticamente si es Excel o TXT)
     df, df_totales, ruta_original, es_texto = cargar_archivo(ruta)
@@ -1296,16 +1473,9 @@ def procesar_archivo(usar_argumentos=True):
 def main():
     """Función principal con bucle de repetición"""
     try:
-        primera_vez = True
-        
         while True:
-            # Limpiar consola al inicio de cada iteración (excepto la primera)
-            if not primera_vez:
-                limpiar_consola()
-            
-            # Procesar archivo (usar argumentos solo la primera vez)
-            procesar_archivo(usar_argumentos=primera_vez)
-            primera_vez = False
+            # Procesar archivo (SIEMPRE usar menú, nunca argumentos)
+            procesar_archivo(usar_argumentos=False)
             
             # Preguntar si quiere procesar otro archivo
             print("\n" + "░" * 60)
@@ -1322,6 +1492,9 @@ def main():
             elif opcion != "1":
                 print("\n⚠️  Opción no válida. Saliendo...")
                 break
+            
+            # Limpiar consola antes de la siguiente iteración
+            limpiar_consola()
         
     except KeyboardInterrupt:
         print("\n\n⚠️  Proceso cancelado por el usuario")

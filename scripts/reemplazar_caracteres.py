@@ -13,21 +13,18 @@ def mostrar_cabecera():
     print()
 
 def mostrar_barra_progreso(progreso, total, texto="Procesando"):
-    """Muestra una barra de progreso con el texto en una línea separada"""
+    """Muestra una barra de progreso"""
     porcentaje = int((progreso / total) * 100)
     barra_llena = int((progreso / total) * 40)
     barra_vacia = 40 - barra_llena
     
     barra = "█" * barra_llena + "░" * barra_vacia
     
-    # Limpiar las dos líneas anteriores y mostrar el progreso
-    print(f"\r{texto:<50}", end="")
-    print(f"\n[{barra}] {porcentaje}%", end="", flush=True)
+    # Mostrar en una sola línea con padding fijo para evitar glitches
+    print(f"\r{'':80}", end="")  # Limpiar línea
+    print(f"\r  {texto:<30} [{barra}] {porcentaje}%", end="", flush=True)
     
-    # Mover el cursor hacia arriba para sobrescribir en la siguiente actualización
-    if progreso < total:
-        print("\033[F\033[F", end="", flush=True)  # Subir 2 líneas
-    else:
+    if progreso == total:
         print()  # Nueva línea al terminar
 
 def reemplazar_caracteres(ruta_archivo):
@@ -162,48 +159,56 @@ def reemplazar_caracteres(ruta_archivo):
         if len(contenido_modificado) == 0:
             raise Exception(f"CRÍTICO: El contenido modificado está vacío. Operación abortada.")
         
-        # Paso 6: Guardar en archivo temporal primero
-        mostrar_barra_progreso(6, 7, "Guardando a temporal")
+        # Paso 6: Preparar archivo de salida en carpeta 'archivos'
+        mostrar_barra_progreso(6, 7, "Preparando salida")
         time.sleep(0.1)
-        archivo_temporal = ruta_archivo + '.tmp'
         
-        # Guardar siempre en UTF-8 porque los caracteres de reemplazo lo requieren
-        with open(archivo_temporal, 'w', encoding='utf-8') as f:
+        # Obtener directorio raíz (padre de 'scripts') y crear carpeta 'archivos'
+        dir_script = os.path.dirname(os.path.abspath(__file__))
+        dir_raiz = os.path.dirname(dir_script)  # Subir un nivel desde 'scripts/'
+        carpeta_archivos = os.path.join(dir_raiz, 'archivos')
+        
+        if not os.path.exists(carpeta_archivos):
+            os.makedirs(carpeta_archivos)
+        
+        # Crear nombre del archivo de salida (sin timestamp, mismo nombre)
+        nombre_archivo = os.path.basename(ruta_archivo)
+        ruta_salida = os.path.join(carpeta_archivos, nombre_archivo)
+        
+        # Paso 7: Guardar archivo procesado
+        mostrar_barra_progreso(7, 7, "Guardando archivo")
+        time.sleep(0.1)
+        
+        # Guardar siempre en UTF-8 con BOM porque los caracteres de reemplazo lo requieren
+        with open(ruta_salida, 'w', encoding='utf-8-sig') as f:
             f.write(contenido_modificado)
         
-        # Verificar que el archivo temporal se creó correctamente
-        if not os.path.exists(archivo_temporal):
-            raise Exception("CRÍTICO: No se pudo crear el archivo temporal. Operación abortada.")
+        # Verificar que el archivo se guardó correctamente
+        if not os.path.exists(ruta_salida):
+            raise Exception("CRÍTICO: No se pudo guardar el archivo. Operación abortada.")
         
-        tamanio_temporal = os.path.getsize(archivo_temporal)
-        if tamanio_temporal == 0:
-            raise Exception("CRÍTICO: El archivo temporal está vacío. Operación abortada.")
-        
-        # Paso 7: Reemplazar el archivo original con el temporal
-        mostrar_barra_progreso(7, 7, "Completando operación")
-        time.sleep(0.1)
-        
-        # Hacer el reemplazo atómico
-        shutil.move(archivo_temporal, ruta_archivo)
-        archivo_temporal = None  # Ya no existe
+        tamanio_salida = os.path.getsize(ruta_salida)
+        if tamanio_salida == 0:
+            raise Exception("CRÍTICO: El archivo guardado está vacío. Operación abortada.")
         print()
         print()
         print("╔═════════════════════════════════════════════════════════════════╗")
         print("║     ARCHIVO PROCESADO CORRECTAMENTE                             ║")
         print("╚═════════════════════════════════════════════════════════════════╝")
-        print(f"  📁 Archivo: {os.path.basename(ruta_archivo):<49}")
-        print(f"  🔤 Codificación origen: {encoding_usado:<38}")
-        print(f"  🔤 Codificación destino: UTF-8")
+        print(f"  📁 Archivo origen: {os.path.basename(ruta_archivo)}")
+        print(f"  📁 Archivo destino: archivos/{os.path.basename(ruta_salida)}")
+        print(f"  🔤 Codificación origen: {encoding_usado}")
+        print(f"  🔤 Codificación destino: UTF-8 con BOM")
         print("───────────────────────────────────────────────────────────────────")
-        print(f"  📊 Líneas originales: {lineas_originales:<42}")
-        print(f"  📊 Líneas procesadas: {lineas_despues_eliminar:<42}")
-        print(f"  📊 Líneas finales: {len(contenido_modificado.splitlines()):<45}")
+        print(f"  📊 Líneas originales: {lineas_originales}")
+        print(f"  📊 Líneas procesadas: {lineas_despues_eliminar}")
+        print(f"  📊 Líneas finales: {len(contenido_modificado.splitlines())}")
         print(f"  ✂️  Filas eliminadas: 5 (4 primeras + fila 8)")
         print(f"  🗑️  Líneas vacías/filtradas eliminadas: {lineas_filtradas}")
         print("───────────────────────────────────────────────────────────────────")
         print(f"  💾 Tamaño original: {tamanio_original:>12,} bytes")
-        print(f"  💾 Tamaño final:    {len(contenido_modificado):>12,} bytes")
-        print(f"  📈 Ratio: {(len(contenido_modificado)/tamanio_original)*100:>6.2f}%")
+        print(f"  💾 Tamaño final:    {tamanio_salida:>12,} bytes")
+        print(f"  📈 Ratio: {(tamanio_salida/tamanio_original)*100:>6.2f}%")
         print("───────────────────────────────────────────────────────────────────")
         
         # Mostrar reemplazos realizados
@@ -218,12 +223,14 @@ def reemplazar_caracteres(ruta_archivo):
                 print(f"     • '{patron_corto}' -> {count:,} veces")
         
         print("───────────────────────────────────────────────────────────────────")
-        print(f"  🛡️  BACKUP GUARDADO:")
-        print(f"     {os.path.basename(ruta_backup):<61}")
+        print(f"  🛡️  BACKUP GUARDADO EN:")
+        print(f"     originales/{os.path.basename(ruta_backup)}")
         print("───────────────────────────────────────────────────────────────────")
+        print(f"  📂 Carpeta destino: {carpeta_archivos}")
         print()
         print("✅ OPERACIÓN COMPLETADA CON ÉXITO")
-        print("⚠️  El archivo de backup se mantiene por seguridad.")
+        print("⚠️  El archivo original permanece intacto en 'originales/'")
+        print("⚠️  El archivo procesado está listo en 'archivos/' para ajustar_facturas.py")
         
     except Exception as e:
         print()
@@ -260,34 +267,76 @@ def reemplazar_caracteres(ruta_archivo):
         sys.exit(1)
 
 def solicitar_archivo():
-    """Solicita la ruta del archivo al usuario"""
-    print("┌─────────────────────────────────────────────────────────────────┐")
-    print("│  Ingresa la ruta del archivo a procesar                         │")
-    print("│  (o arrastra el archivo aquí y presiona Enter)                  │")
-    print("└─────────────────────────────────────────────────────────────────┘")
+    """Muestra un menú de archivos disponibles en la carpeta 'originales/'"""
+    # Obtener directorio raíz (padre de 'scripts')
+    dir_script = os.path.dirname(os.path.abspath(__file__))
+    dir_raiz = os.path.dirname(dir_script)  # Subir un nivel desde 'scripts/'
+    carpeta_originales = os.path.join(dir_raiz, 'originales')
+    
+    # Crear carpeta si no existe
+    if not os.path.exists(carpeta_originales):
+        os.makedirs(carpeta_originales)
+        print("╔═══════════════════════════════════════════════════════════╗")
+        print("║     Carpeta 'originales' creada                           ║")
+        print("╚═══════════════════════════════════════════════════════════╝")
+        print(f"\nPor favor, copia tus archivos TXT originales en:")
+        print(f"  {carpeta_originales}")
+        input("\nPresiona ENTER cuando hayas copiado los archivos...")
+    
+    # Buscar archivos válidos (TXT y CSV)
+    extensiones_validas = ['.txt', '.csv']
+    archivos_disponibles = []
+    
+    for archivo in os.listdir(carpeta_originales):
+        ext = os.path.splitext(archivo)[1].lower()
+        if ext in extensiones_validas:
+            ruta_completa = os.path.join(carpeta_originales, archivo)
+            archivos_disponibles.append((archivo, ruta_completa))
+    
+    if not archivos_disponibles:
+        print("╔═══════════════════════════════════════════════════════════╗")
+        print("║      ERROR: No hay archivos en 'originales'               ║")
+        print("╚═══════════════════════════════════════════════════════════╝")
+        print(f"\nCopia archivos (.txt, .csv) en:")
+        print(f"  {carpeta_originales}")
+        input("\nPresiona ENTER para salir...")
+        sys.exit(1)
+    
+    # Mostrar menú
+    print("░░░░▒▒▒▒▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▒▒▒▒░░░░")
+    print("░░░░▒▒▒▒▓▓▓              SELECCIONA ARCHIVO A PROCESAR              ▓▓▓▒▒▒▒░░░░")
+    print("░░░░▒▒▒▒▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▒▒▒▒░░░░")
     print()
-    ruta = input("📁 Ruta del archivo: ").strip().strip('"')
-    return ruta
+    
+    for i, (nombre, _) in enumerate(archivos_disponibles, 1):
+        print(f"  [{i}] {nombre}")
+    
+    print()
+    while True:
+        try:
+            seleccion = input("Selecciona el número del archivo (o 0 para salir): ").strip()
+            num = int(seleccion)
+            
+            if num == 0:
+                print("\n👋 Saliendo...")
+                sys.exit(0)
+            
+            if 1 <= num <= len(archivos_disponibles):
+                archivo_seleccionado = archivos_disponibles[num - 1][1]
+                print(f"\n✅ Archivo seleccionado: {archivos_disponibles[num - 1][0]}")
+                return archivo_seleccionado
+            else:
+                print(f"❌ Por favor, selecciona un número entre 1 y {len(archivos_disponibles)}")
+        except ValueError:
+            print("❌ Por favor, ingresa un número válido")
 
 if __name__ == "__main__":
     mostrar_cabecera()
     
-    # Si se arrastró un archivo sobre el .bat
-    if len(sys.argv) >= 2:
-        archivo = sys.argv[1]
-    else:
-        # Si se ejecutó directamente, pedir el archivo
-        archivo = solicitar_archivo()
+    # Buscar y seleccionar archivo del menú
+    archivo = solicitar_archivo()
     
     print()
-    
-    if not os.path.exists(archivo):
-        print("┌─────────────────────────────────────────────────────────────────┐")
-        print("│    ERROR: El archivo no existe                                  │")
-        print("└─────────────────────────────────────────────────────────────────┘")
-        input("\nPresiona Enter para salir...")
-        sys.exit(1)
-    
     print("═" * 69)
     reemplazar_caracteres(archivo)
     print("═" * 69)
@@ -303,18 +352,48 @@ if __name__ == "__main__":
             print("░░░░▒▒▒▒▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▒▒▒▒░░░░")
             print()
             archivo = solicitar_archivo()
-            if os.path.exists(archivo):
-                print()
-                print("═" * 69)
-                reemplazar_caracteres(archivo)
-                print("═" * 69)
-                print()
-            else:
-                print()
-                print("┌─────────────────────────────────────────────────────────────────┐")
-                print("│     ERROR: El archivo no existe                                 │")
-                print("└─────────────────────────────────────────────────────────────────┘")
-                break
+            print()
+            print("═" * 69)
+            reemplazar_caracteres(archivo)
+            print("═" * 69)
+            print()
+        elif respuesta == 'N':
+            break
+        else:
+            print("⚠️  Por favor, responde S (Sí) o N (No)")
+    
+    # Preguntar si quiere ejecutar el script de ajuste de facturas
+    print()
+    print("╔═══════════════════════════════════════════════════════════════════════════╗")
+    print("║         ¿DESEAS EJECUTAR EL SCRIPT DE AJUSTE DE FACTURAS?                ║")
+    print("╚═══════════════════════════════════════════════════════════════════════════╝")
+    print()
+    print("  Los archivos procesados están en la carpeta 'archivos/'")
+    print("  El script de ajuste creará los tickets de compensación.")
+    print()
+    
+    while True:
+        respuesta = input("¿Ejecutar ajuste de facturas? (S/N): ").strip().upper()
+        if respuesta == 'S':
+            print()
+            print("🚀 Iniciando script de ajuste de facturas...")
+            print()
+            time.sleep(1)
+            
+            # Ejecutar ajustar_facturas.py
+            import subprocess
+            dir_script = os.path.dirname(os.path.abspath(__file__))
+            script_ajuste = os.path.join(dir_script, 'ajustar_facturas.py')
+            
+            try:
+                # Determinar comando Python
+                import sys
+                python_cmd = sys.executable
+                subprocess.run([python_cmd, script_ajuste])
+            except Exception as e:
+                print(f"❌ Error al ejecutar script de ajuste: {e}")
+                input("\nPresiona ENTER para salir...")
+            break
         elif respuesta == 'N':
             print()
             print("👋 ¡Hasta pronto!")
