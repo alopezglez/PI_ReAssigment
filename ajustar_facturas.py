@@ -70,6 +70,177 @@ def obtener_parametros_desde_args():
             pass
     return None, None
 
+def cargar_archivo(ruta):
+    """Función principal que detecta y carga el archivo según su extensión"""
+    extension = os.path.splitext(ruta)[1].lower()
+    
+    # Si es archivo de texto
+    if extension in ['.txt', '.csv']:
+        df = cargar_archivo_texto(ruta)
+        
+        # Preguntar por archivo de TOTALES
+        print("\n▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓")
+        print("▓      ¿TIENES UN ARCHIVO DE TOTALES?               ▓")
+        print("▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓")
+        print("\nPor favor, arrastra el archivo de TOTALES (.txt) aquí:")
+        print("(o presiona ENTER para omitir)\n")
+        
+        ruta_totales = input("Ruta del archivo TOTALES: ").strip().strip('"').strip("'")
+        
+        if ruta_totales and os.path.exists(ruta_totales):
+            ext_totales = os.path.splitext(ruta_totales)[1].lower()
+            if ext_totales == '.txt':
+                df_totales = cargar_totales_texto(ruta_totales)
+            elif ext_totales in ['.xls', '.xlsx']:
+                # Cargar como Excel sin encabezados
+                df_totales = pd.read_excel(ruta_totales, header=None, engine='openpyxl')
+            else:
+                print("⚠️  Formato no soportado para TOTALES")
+                df_totales = None
+        else:
+            print("⚠️  No se cargará archivo de TOTALES")
+            df_totales = None
+        
+        return df, df_totales, ruta, True  # True = es texto
+    
+    # Si es archivo Excel
+    elif extension in ['.xls', '.xlsx']:
+        return cargar_excel(ruta)
+    
+    else:
+        print(f"❌ ERROR: Formato no soportado: {extension}")
+        print("   Formatos válidos: .xls, .xlsx, .txt, .csv")
+        input("\nPresiona ENTER para salir...")
+        sys.exit(1)
+
+def convertir_decimales_europeos(df, columnas):
+    """Convierte decimales europeos (,) a formato estándar (.)"""
+    for col in columnas:
+        if col in df.columns:
+            # Convertir a string, reemplazar coma por punto, convertir a float
+            df[col] = df[col].astype(str).str.replace(',', '.').str.replace(' ', '')
+            df[col] = pd.to_numeric(df[col], errors='coerce')
+    return df
+
+def cargar_archivo_texto(ruta):
+    """Carga archivo de texto delimitado por │"""
+    print("\n📂 Cargando archivo de texto...")
+    print("   📄 Detectado formato TXT delimitado")
+    
+    # Leer todas las líneas
+    with open(ruta, 'r', encoding='utf-8') as f:
+        lineas = f.readlines()
+    
+    # Filtrar líneas decorativas (que empiezan con ┌, ├, └, │TOTAL, │COCOA SUBTOTAL)
+    lineas_validas = []
+    encabezado = None
+    
+    for linea in lineas:
+        linea = linea.strip()
+        # Ignorar líneas decorativas
+        if linea.startswith(('┌', '├', '└', '─')):
+            continue
+        # Ignorar líneas vacías
+        if not linea or linea == '│':
+            continue
+        # Capturar encabezado
+        if 'NºFactura' in linea and encabezado is None:
+            encabezado = linea
+            continue
+        # Ignorar SUBTOTAL y TOTAL
+        if 'SUBTOTAL' in linea or linea.startswith('│TOTAL'):
+            continue
+        # Línea de datos válida
+        if linea.startswith('│'):
+            lineas_validas.append(linea)
+    
+    # Parsear encabezado
+    if encabezado:
+        columnas = [col.strip() for col in encabezado.split('│') if col.strip()]
+    else:
+        # Encabezado por defecto si no se encuentra
+        columnas = ['Local', 'DIA', 'Hora', 'NºFactura', 'Mesa', 'PAX', 'Camarero', 
+                   'Base', 'IVA', 'TOTAL Fra', 'Ticket MIX', 'COBRADO', 'TARJETA', 
+                   'Descuentos', 'Invitaciones']
+    
+    # Parsear datos
+    datos = []
+    for linea in lineas_validas:
+        valores = [val.strip() for val in linea.split('│') if val or val == '']
+        # Eliminar primer y último elemento si están vacíos (por el │ inicial/final)
+        if len(valores) > 0 and valores[0] == '':
+            valores = valores[1:]
+        if len(valores) > 0 and valores[-1] == '':
+            valores = valores[:-1]
+        
+        if len(valores) > 0:
+            datos.append(valores)
+    
+    # Crear DataFrame
+    df = pd.DataFrame(datos, columns=columnas[:len(datos[0])] if datos else columnas)
+    
+    # Convertir decimales europeos a estándar
+    columnas_numericas = ['Base', 'IVA', 'TOTAL Fra', 'COBRADO', 'TARJETA', 'Descuentos', 'Invitaciones']
+    df = convertir_decimales_europeos(df, columnas_numericas)
+    
+    # NORMALIZAR NOMBRES DE COLUMNAS para que coincidan con el formato Excel
+    # Esto permite que el resto del código funcione sin cambios
+    mapeo_nombres = {
+        'Local': 'Local',
+        'DIA': 'DIA',
+        'Hora': 'Hora',
+        'NºFactura': 'NºFactura',
+        'Mesa': '_Mesa',  # Columna extra, prefijo _ para ignorar
+        'PAX': '_PAX',
+        'Camarero': '_Camarero',
+        'Base': 'BASE',  # Normalizar a mayúsculas
+        'IVA': 'IVA',
+        'TOTAL Fra': 'TOTAL Fra',
+        'Ticket MIX': '_Ticket MIX',
+        'COBRADO': 'COBRADO',
+        'TARJETA': 'TARJETA',
+        'Descuentos': 'Descuentos',
+        'Invitaciones': 'INVITACIONES'  # Normalizar a mayúsculas
+    }
+    
+    # Renombrar columnas
+    df = df.rename(columns=mapeo_nombres)
+    
+    # Reordenar columnas para que coincidan con el formato Excel esperado
+    # Orden: Local, DIA, Hora, NºFactura, BASE, IVA, TOTAL Fra, COBRADO, TARJETA, Descuentos, INVITACIONES
+    columnas_ordenadas = ['Local', 'DIA', 'Hora', 'NºFactura', 'BASE', 'IVA', 'TOTAL Fra', 
+                         'COBRADO', 'TARJETA', 'Descuentos', 'INVITACIONES']
+    
+    # Mantener solo columnas que existen
+    columnas_finales = [c for c in columnas_ordenadas if c in df.columns]
+    
+    # Agregar columnas extra al final (las que empiezan con _)
+    columnas_extra = [c for c in df.columns if c.startswith('_')]
+    df = df[columnas_finales + columnas_extra]
+    
+    print(f"✅ Archivo cargado exitosamente: {len(df)} registros encontrados")
+    print(f"   Columnas normalizadas para compatibilidad con formato Excel")
+    return df
+
+def cargar_totales_texto(ruta):
+    """Carga archivo de totales en formato texto (fecha\\ttotal)"""
+    print("\n📂 Cargando archivo TOTALES TXT...")
+    
+    try:
+        # Leer con pandas: delimitador tabulador, sin encabezado
+        df_totales = pd.read_csv(ruta, sep='\t', header=None, encoding='utf-8')
+        
+        # Convertir decimales europeos en la columna de totales
+        if len(df_totales.columns) >= 2:
+            df_totales[1] = df_totales[1].astype(str).str.replace('.', '').str.replace(',', '.')
+            df_totales[1] = pd.to_numeric(df_totales[1], errors='coerce')
+        
+        print(f"✅ Archivo TOTALES cargado: {len(df_totales)} registros")
+        return df_totales
+    except Exception as e:
+        print(f"❌ Error al cargar TOTALES TXT: {str(e)}")
+        return None
+
 def cargar_excel(ruta):
     """Carga el archivo Excel"""
     print("\n📂 Cargando archivo Excel...")
@@ -90,6 +261,7 @@ def cargar_excel(ruta):
     
     df = None
     df_totales = None
+    es_archivo_texto = False
     
     for engine in engines:
         try:
@@ -114,7 +286,7 @@ def cargar_excel(ruta):
             
             print(f"✅ Archivo cargado exitosamente: {len(df)} registros encontrados")
             print(f"   Engine utilizado: {engine}")
-            return df, df_totales, ruta
+            return df, df_totales, ruta, False  # False = no es texto
             
         except Exception as e:
             print(f"   ❌ Falló con '{engine}': {str(e)[:100]}")
@@ -130,7 +302,7 @@ def cargar_excel(ruta):
             else:
                 continue  # Intentar con el siguiente engine
 
-def validar_estructura_archivo(df, df_totales, ruta):
+def validar_estructura_archivo(df, df_totales, ruta, es_texto=False):
     """Valida que el archivo cumple con los requisitos mínimos"""
     print("\n╔═════════════════════════════════════════════════════════════════════════════╗")
     print("║  VALIDACIÓN PREVIA: Estructura del archivo                                  ║")
@@ -139,35 +311,45 @@ def validar_estructura_archivo(df, df_totales, ruta):
     errores_criticos = []
     advertencias = []
     
-    # Validación 1: Verificar hojas existentes
-    print("\n🔍 Verificando hojas del archivo...")
+    # Validación 1: Verificar datos cargados
+    tipo_archivo = "archivo TXT" if es_texto else "archivo Excel"
+    print(f"\n🔍 Verificando datos del {tipo_archivo}...")
     if df is None:
-        errores_criticos.append("No se pudo cargar la hoja de registros")
+        errores_criticos.append("No se pudo cargar el archivo de registros")
     else:
-        print("   ✅ Hoja 'Registros' encontrada")
+        print("   ✅ Datos de registros cargados correctamente")
     
     if df_totales is None:
-        advertencias.append("Hoja 'TOTALES' no encontrada - No se ajustarán totales")
-        print("   ⚠️  Hoja 'TOTALES' no encontrada")
+        advertencias.append("Archivo de TOTALES no encontrado - No se ajustarán totales")
+        print("   ⚠️  Archivo de TOTALES no proporcionado")
     else:
-        print("   ✅ Hoja 'TOTALES' encontrada")
+        print("   ✅ Archivo de TOTALES cargado")
         # Validar estructura de TOTALES
         if len(df_totales) < 1:
-            advertencias.append("Hoja 'TOTALES' está vacía")
-            print("      ⚠️  La hoja TOTALES está vacía")
+            advertencias.append("Archivo de TOTALES está vacío")
+            print("      ⚠️  El archivo TOTALES está vacío")
         elif len(df_totales.columns) < 2:
-            errores_criticos.append("Hoja 'TOTALES' debe tener al menos 2 columnas (Fecha | Total)")
-            print("      ❌ Faltan columnas en hoja TOTALES")
+            errores_criticos.append("Archivo de TOTALES debe tener al menos 2 columnas (Fecha | Total)")
+            print("      ❌ Faltan columnas en archivo TOTALES")
         else:
-            print(f"      ✅ {len(df_totales)} registros en hoja TOTALES")
+            print(f"      ✅ {len(df_totales)} registros en archivo TOTALES")
     
     # Validación 2: Verificar columnas mínimas
     print("\n🔍 Verificando columnas requeridas...")
     columnas = df.columns.tolist()
-    columnas_esperadas = [
-        "Local", "DIA", "Hora", "NºFactura", "BASE", "IVA", "TOTAL Fra", 
-        "COBRADO", "TARJETA", "Descuentos", "INVITACIONES"
-    ]
+    
+    # Columnas esperadas (archivos de texto pueden tener más columnas)
+    if es_texto:
+        columnas_esperadas = [
+            "Local", "DIA", "Hora", "NºFactura", "Mesa", "PAX", "Camarero",
+            "Base", "IVA", "TOTAL Fra", "Ticket MIX", "COBRADO", "TARJETA", 
+            "Descuentos", "Invitaciones"
+        ]
+    else:
+        columnas_esperadas = [
+            "Local", "DIA", "Hora", "NºFactura", "BASE", "IVA", "TOTAL Fra", 
+            "COBRADO", "TARJETA", "Descuentos", "INVITACIONES"
+        ]
     
     print(f"   Columnas encontradas: {len(columnas)}")
     print(f"   Columnas esperadas: {len(columnas_esperadas)} mínimo")
@@ -252,7 +434,7 @@ def validar_estructura_archivo(df, df_totales, ruta):
     print()
 
 def paso1_fusionar_columnas(df):
-    """Fusiona columnas H (COBRADO) e I (INVITACIONES TARJETA)"""
+    """Fusiona columnas H (COBRADO) e I (columna siguiente a COBRADO, típicamente TARJETA o vacía)"""
     print("\n╔═══════════════════════════════════════════════════════════════════════════╗")
     print("║  PASO 1: Fusionando columnas COBRADO e INV. TARJETA                         ║")
     print("╚═════════════════════════════════════════════════════════════════════════════╝")
@@ -261,19 +443,20 @@ def paso1_fusionar_columnas(df):
     columnas = df.columns.tolist()
     print(f"\n📋 Columnas encontradas en el archivo:")
     for i, col in enumerate(columnas):
-        print(f"   {chr(65+i)} (índice {i}): {col}")
+        if i < 15:  # Mostrar solo las primeras 15
+            print(f"   {chr(65+i) if i < 26 else i} (índice {i}): {col}")
     
     # Verificar que hay suficientes columnas
     if len(columnas) < 9:
         print(f"\n⚠️  ADVERTENCIA: Solo se encontraron {len(columnas)} columnas")
-        print("   Se esperaban al menos 9 columnas (A-I)")
+        print("   Se esperaban al menos 9 columnas")
         if len(columnas) < 8:
             print("   No se puede fusionar. Se omite este paso.")
             return df
     
     # Trabajar con índices de columna (más seguro)
     col_h_idx = 7  # Columna H (COBRADO)
-    col_i_idx = 8  # Columna I (INVITACIONES TARJETA)
+    col_i_idx = 8  # Columna I (siguiente)
     
     col_h = columnas[col_h_idx]
     col_i = columnas[col_i_idx] if col_i_idx < len(columnas) else None
@@ -1076,11 +1259,11 @@ def procesar_archivo(usar_argumentos=True):
         print(f"\n📁 Archivo: {os.path.basename(ruta)}")
         print(f"🎫 Ticket inicial: {ticket_inicial}")
     
-    # Cargar Excel
-    df, df_totales, ruta_original = cargar_excel(ruta)
+    # Cargar archivo (detecta automáticamente si es Excel o TXT)
+    df, df_totales, ruta_original, es_texto = cargar_archivo(ruta)
     
     # VALIDACIÓN PREVIA: Verificar estructura del archivo
-    validar_estructura_archivo(df, df_totales, ruta_original)
+    validar_estructura_archivo(df, df_totales, ruta_original, es_texto)
     
     # PASO 1: Fusionar columnas
     df = paso1_fusionar_columnas(df)
