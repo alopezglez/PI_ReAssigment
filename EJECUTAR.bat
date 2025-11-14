@@ -1,6 +1,23 @@
 @echo off
 setlocal enabledelayedexpansion
 chcp 65001 >nul
+
+REM Verificar si se está ejecutando como administrador
+net session >nul 2>&1
+if %errorlevel% neq 0 (
+    echo.
+    echo ════════════════════════════════════════════════════════════════════════════
+    echo   ⚠️  Este script requiere permisos de administrador
+    echo ════════════════════════════════════════════════════════════════════════════
+    echo.
+    echo   Relanzando con privilegios elevados...
+    echo.
+    
+    REM Solicitar elevación de privilegios
+    powershell -Command "Start-Process '%~f0' -Verb RunAs"
+    exit /b
+)
+
 title Sistema de Procesamiento de Facturas
 
 REM Cambiar al directorio del script (resuelve problema de rutas UNC)
