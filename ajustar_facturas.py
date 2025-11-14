@@ -80,7 +80,7 @@ def cargar_archivo(ruta):
         
         # Preguntar por archivo de TOTALES
         print("\n▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓")
-        print("▓      ¿TIENES UN ARCHIVO DE TOTALES?               ▓")
+        print("▓      ¿TIENES UN ARCHIVO DE TOTALES?                ▓")
         print("▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓")
         print("\nPor favor, arrastra el archivo de TOTALES (.txt) aquí:")
         print("(o presiona ENTER para omitir)\n")
